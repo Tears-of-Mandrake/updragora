@@ -1,11 +1,11 @@
 Name:           updragora
-Version:        0.1.1
+Version:        0.1.2
 Release:        1
 Summary:        Modern system updater and package manager for OpenMandriva
 Group:          System/Configuration/Packaging
 License:        GPLv3+
 URL:            https://github.com/tears-of-mandrake/updragora
-Source0:        %{name}-%{version}.tar.gz
+Source0:        https://github.com/tears-of-mandrake/updragora/archive/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 BuildRequires:  python >= 3.9
