@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=UPDragora
+GenericName=System Updater
+GenericName[pl]=Aktualizator systemu
+Comment=Update OpenMandriva Linux and manage packages
+Comment[pl]=Aktualizuj OpenMandriva Linux i zarządzaj pakietami
+Exec=updragora
+Icon=updragora
+Terminal=false
+Categories=System;PackageManager;Settings;
+Keywords=update;upgrade;package;dnf;distro-sync;flatpak;
+Keywords[pl]=aktualizacja;pakiety;dnf;distro-sync;flatpak;
+StartupNotify=true

@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""UPDragora launcher."""
+
+import os
+import sys
+
+# Locate the updragora package: source checkout first, then the
+# system-wide installation directory used by the RPM package.
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _candidate in (_root, "/usr/share/updragora"):
+    if os.path.isdir(os.path.join(_candidate, "updragora")):
+        sys.path.insert(0, _candidate)
+        break
+
+from updragora.gtk.app import main
+
+sys.exit(main())

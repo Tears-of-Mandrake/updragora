@@ -1,0 +1,3 @@
+# PyGObject provides the GTK4 / libadwaita bindings.
+# On OpenMandriva prefer the distribution package (python-gobject3).
+PyGObject>=3.42

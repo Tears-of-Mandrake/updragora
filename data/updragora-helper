@@ -1,0 +1,50 @@
+#!/bin/sh
+# UPDragora privileged helper.
+#
+# Executed via pkexec (see org.tearsofmandrake.updragora.policy).
+# Only whitelisted dnf subcommands are allowed, everything else is
+# rejected. This keeps the privileged surface minimal.
+
+set -eu
+
+if [ "$#" -lt 1 ]; then
+    echo "updragora-helper: missing dnf subcommand" >&2
+    exit 2
+fi
+
+SUBCOMMAND="$1"
+shift
+
+case "$SUBCOMMAND" in
+    distro-sync|install|upgrade|remove|check-update|makecache)
+        ;;
+    *)
+        echo "updragora-helper: subcommand '$SUBCOMMAND' is not allowed" >&2
+        exit 2
+        ;;
+esac
+
+# Validate remaining arguments: package names and a small set of options.
+for arg in "$@"; do
+    case "$arg" in
+        -y|--assumeno|--allowerasing|--refresh|--best|--nobest)
+            ;;
+        --exclude=*)
+            ;;
+        -*)
+            echo "updragora-helper: option '$arg' is not allowed" >&2
+            exit 2
+            ;;
+        *)
+            # package name / glob - no shell metacharacters allowed
+            case "$arg" in
+                *[\;\&\|\`\$\<\>]*)
+                    echo "updragora-helper: invalid argument '$arg'" >&2
+                    exit 2
+                    ;;
+            esac
+            ;;
+    esac
+done
+
+exec /usr/bin/dnf "$SUBCOMMAND" "$@"
