@@ -6,7 +6,7 @@ License: GPL-3.0-or-later
 
 APP_ID = "org.tearsofmandrake.updragora"
 APP_NAME = "UPDragora"
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.3"
 APP_AUTHOR = "Tears of Mandrake"
 APP_WEBSITE = "https://github.com/tears-of-mandrake"
 ICON_NAME = "updragora"

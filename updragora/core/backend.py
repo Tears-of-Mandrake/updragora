@@ -367,8 +367,8 @@ def preview_transaction(dnf_args):
     if "Nothing to do" in out:
         return [], "", None
     if "Transaction Summary" not in out:
-        err = (proc.stderr or proc.stdout or "Failed to resolve transaction")
-        return [], "", err.strip()
+        err = out.strip() or "Failed to resolve transaction"
+        return [], "", err
     lines = [l for l in (proc.stdout or "").splitlines()
              if "Operation aborted" not in l]
     summary = "\n".join(lines).strip()

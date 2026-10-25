@@ -142,12 +142,6 @@ class UpdatePage(Gtk.Box):
 
         button_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                              spacing=6, halign=Gtk.Align.END)
-        clean_btn = Gtk.Button(
-            label=_("Clean cache & refresh"),
-            tooltip_text=_("Run \"dnf clean all\" and download fresh "
-                           "repository metadata, then check again"))
-        clean_btn.connect("clicked", self._on_clean_refresh_clicked)
-        button_row.append(clean_btn)
         recheck = Gtk.Button(label=_("Check again"))
         recheck.connect("clicked", self._on_check_clicked)
         button_row.append(recheck)
@@ -161,39 +155,28 @@ class UpdatePage(Gtk.Box):
     # ------------------------------------------------------------------
     def _on_check_clicked(self, *args):
         self.stack.set_visible_child_name("checking")
-        args = self._current_args()
-        if bool(config.get("refresh_metadata")):
-            args.append("--refresh")
-        threading.Thread(target=self._check_worker, args=(args,),
-                         daemon=True).start()
-
-    def _check_worker(self, args):
-        items, summary, error = backend.preview_transaction(args)
-        versions = backend.installed_versions() if items else {}
-        GLib.idle_add(self._check_done, items, versions, error)
-
-    def _on_clean_refresh_clicked(self, *args):
-        self.stack.set_visible_child_name("checking")
-        threading.Thread(target=self._clean_refresh_worker,
+        threading.Thread(target=self._check_worker,
                          args=(self._current_args(),), daemon=True).start()
 
-    def _clean_refresh_worker(self, args):
+    def _check_worker(self, args):
+        # always start from a clean slate: dnf clean all + fresh metadata
         ok, err = backend.clean_and_refresh()
         if not ok:
-            GLib.idle_add(self.window.show_toast,
-                          _("Failed to refresh repositories: {0}")
-                          .format(err))
-            GLib.idle_add(self.stack.set_visible_child_name, "start")
+            GLib.idle_add(self._check_failed, err)
             return
-        # metadata is fresh now - run the normal check
-        self._check_worker(args)
-
-    def _check_done(self, items, versions, error):
+        items, summary, error = backend.preview_transaction(args)
         if error:
-            self.window.show_toast(_("Failed to check for updates: {0}")
-                                   .format(error))
-            self.stack.set_visible_child_name("start")
-            return False
+            GLib.idle_add(self._check_failed, error)
+            return
+        versions = backend.installed_versions() if items else {}
+        GLib.idle_add(self._check_done, items, versions)
+
+    def _check_failed(self, error):
+        self.stack.set_visible_child_name("start")
+        self._show_error_dialog(error)
+        return False
+
+    def _check_done(self, items, versions):
         # "obsoleted" entries duplicate packages already listed for
         # upgrade/replacement and would be misleading - hide them.
         # Genuine removals (e.g. via --allowerasing) come from the
@@ -275,6 +258,74 @@ class UpdatePage(Gtk.Box):
             icon.add_css_class("success")
             row.add_prefix(icon)
         return row
+
+    # ------------------------------------------------------------------
+    def _show_error_dialog(self, error_text):
+        dialog = Adw.MessageDialog(
+            transient_for=self.window,
+            heading=_("Failed to check for updates"),
+            body=_("dnf reported the following problem:"),
+        )
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+
+        scroll = Gtk.ScrolledWindow(min_content_height=220,
+                                    min_content_width=560,
+                                    hexpand=True, vexpand=True)
+        scroll.add_css_class("card")
+        view = Gtk.TextView(editable=False, cursor_visible=False,
+                            monospace=True,
+                            wrap_mode=Gtk.WrapMode.WORD_CHAR,
+                            left_margin=8, right_margin=8,
+                            top_margin=8, bottom_margin=8)
+        view.get_buffer().set_text(error_text)
+        scroll.set_child(view)
+        box.append(scroll)
+
+        copy_btn = Gtk.Button(label=_("Copy log"), halign=Gtk.Align.END)
+
+        def on_copy(*_a):
+            display = Gdk.Display.get_default()
+            if display is not None:
+                display.get_clipboard().set(error_text)
+                self.window.show_toast(_("Log copied to clipboard"))
+
+        copy_btn.connect("clicked", on_copy)
+        box.append(copy_btn)
+
+        # quick access to the options that usually resolve such problems
+        allow_check = Gtk.CheckButton(
+            label=_("Allow erasing conflicting packages (--allowerasing)"))
+        allow_check.set_active(self.allowerasing_switch.get_active())
+        box.append(allow_check)
+
+        excl_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                           spacing=12)
+        excl_row.append(Gtk.Label(
+            label=_("Exclude packages (comma separated)"), xalign=0))
+        excl_entry = Gtk.Entry(hexpand=True,
+                               text=self.exclude_entry.get_text(),
+                               placeholder_text="kernel-desktop, foo")
+        excl_row.append(excl_entry)
+        box.append(excl_row)
+
+        dialog.set_extra_child(box)
+        dialog.add_response("close", _("Close"))
+        dialog.add_response("retry", _("Try again"))
+        dialog.set_response_appearance("retry",
+                                       Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("retry")
+
+        def on_response(_d, response):
+            if response != "retry":
+                return
+            # carry the chosen options over to the advanced options
+            self.allowerasing_switch.set_active(allow_check.get_active())
+            self.exclude_entry.set_text(excl_entry.get_text())
+            self._on_check_clicked()
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     # ------------------------------------------------------------------
     def _current_args(self, refresh=False):
