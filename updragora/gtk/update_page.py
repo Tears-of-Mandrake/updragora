@@ -155,15 +155,13 @@ class UpdatePage(Gtk.Box):
     # ------------------------------------------------------------------
     def _on_check_clicked(self, *args):
         self.stack.set_visible_child_name("checking")
-        threading.Thread(target=self._check_worker,
-                         args=(self._current_args(),), daemon=True).start()
+        args = self._current_args()
+        if bool(config.get("refresh_metadata")):
+            args.append("--refresh")
+        threading.Thread(target=self._check_worker, args=(args,),
+                         daemon=True).start()
 
     def _check_worker(self, args):
-        # always start from a clean slate: dnf clean all + fresh metadata
-        ok, err = backend.clean_and_refresh()
-        if not ok:
-            GLib.idle_add(self._check_failed, err)
-            return
         items, summary, error = backend.preview_transaction(args)
         if error:
             GLib.idle_add(self._check_failed, error)
